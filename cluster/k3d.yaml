@@ -1,0 +1,31 @@
+# A real multi-node Kubernetes cluster, each "node" is a container on OrbStack.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: talk
+servers: 1          # control plane
+agents: 3           # worker nodes
+kubeAPI:
+  hostIP: 127.0.0.1 # only this laptop can reach the API
+ports:
+  - port: 127.0.0.1:8080:80   # laptop :8080 -> the cluster's ingress
+    nodeFilters:
+      - loadbalancer
+options:
+  k3s:
+    extraArgs:
+      # keep our apps off the control plane, like a production cluster
+      - arg: --node-taint=node-role.kubernetes.io/control-plane=true:NoSchedule
+        nodeFilters:
+          - server:*
+      # Demo tuning: react to a dead node in about 30 seconds. The defaults are
+      # far more patient (about 5 minutes) so a network blip is not a stampede.
+      - arg: --kube-controller-manager-arg=node-monitor-grace-period=20s
+        nodeFilters:
+          - server:*
+      - arg: --kube-apiserver-arg=default-not-ready-toleration-seconds=5
+        nodeFilters:
+          - server:*
+      - arg: --kube-apiserver-arg=default-unreachable-toleration-seconds=5
+        nodeFilters:
+          - server:*
